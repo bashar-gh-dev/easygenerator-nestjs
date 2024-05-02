@@ -3,10 +3,13 @@ import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './users/entities/user.entity';
 import { ConfigModule } from '@nestjs/config';
+import { IamModule } from './iam/iam.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      envFilePath: '.development.env',
+    }),
     UsersModule,
     TypeOrmModule.forRoot({
       type: 'mongodb',
@@ -17,6 +20,7 @@ import { ConfigModule } from '@nestjs/config';
       entities: [User],
       database: process.env.DB_DATABASE,
     }),
+    IamModule,
   ],
 })
 export class AppModule {}
