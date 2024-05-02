@@ -33,7 +33,7 @@ export class AuthenticationService {
     user.password = await this.hashingService.hash(signUpDto.password);
     await this.usersService.create(user);
     const accessToken = await this.generateTokens(user);
-    return { accessToken };
+    return accessToken;
   }
 
   async signIn(signInDto: SignInDto) {
@@ -49,7 +49,7 @@ export class AuthenticationService {
       throw new UnauthorizedException('Wrong password');
     }
     const accessToken = await this.generateTokens(user);
-    return { accessToken };
+    return accessToken;
   }
 
   private async generateTokens(user: User) {
