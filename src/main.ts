@@ -1,23 +1,32 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { WinstonModule } from 'nest-winston';
+import { WinstonModule, utilities } from 'nest-winston';
 import { format, transports } from 'winston';
 import * as cookieParser from 'cookie-parser';
 
 const { File, Console } = transports;
-const { combine, timestamp, prettyPrint } = format;
+const { combine, timestamp } = format;
+const {
+  format: { nestLike },
+} = utilities;
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({
       transports: [
         new Console({
-          format: combine(timestamp(), prettyPrint({ colorize: true })),
+          format: combine(
+            timestamp(),
+            nestLike('Easygenerator', {
+              colors: true,
+              prettyPrint: true,
+            }),
+          ),
         }),
         new File({
-          filename: 'combined.log',
-          level: 'debug',
+          filename: 'errors.log',
+          level: 'error',
         }),
       ],
     }),
