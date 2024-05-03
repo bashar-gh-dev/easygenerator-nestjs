@@ -4,12 +4,13 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
 } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 
 @Controller('authentication')
 export class AuthenticationController {
@@ -40,5 +41,18 @@ export class AuthenticationController {
       httpOnly: true,
       sameSite: true,
     });
+  }
+
+  @Post('verify-token')
+  @HttpCode(HttpStatus.OK)
+  async verifyToken(@Req() request: Request) {
+    const accessToken = request.cookies['accessToken'];
+    await this.authService.verifyToken(accessToken);
+  }
+
+  @Post('sign-out')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie('accessToken');
   }
 }

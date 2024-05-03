@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
 import { format, transports } from 'winston';
+import * as cookieParser from 'cookie-parser';
 
 const { File, Console } = transports;
 const { combine, timestamp, prettyPrint } = format;
@@ -22,6 +23,7 @@ async function bootstrap() {
     }),
   });
   app.useGlobalPipes(new ValidationPipe());
+  app.use(cookieParser());
   await app.listen(3000);
 }
 bootstrap();

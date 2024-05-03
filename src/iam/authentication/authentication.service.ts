@@ -52,6 +52,17 @@ export class AuthenticationService {
     return accessToken;
   }
 
+  async verifyToken(token: string) {
+    try {
+      await this.jwtService.verifyAsync(token, {
+        secret: this.jwtConfiguration.secret,
+      });
+      return true;
+    } catch (_e) {
+      throw new UnauthorizedException('User is not logged in');
+    }
+  }
+
   private async generateTokens(user: User) {
     const accessToken = await this.signToken<Partial<User>>(
       user.id,
