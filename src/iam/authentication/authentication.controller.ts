@@ -6,16 +6,23 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { Response, Request } from 'express';
+import { AccessTokenGuard } from '../guards/access-token.guard';
+import { Public } from '../decorators/public.decorator';
+import { LoggedInUser } from '../decorators/logged-in-user.decorator';
+import { AccessTokenPayload } from '../interfaces/access-token.payload.interface';
 
+@UseGuards(AccessTokenGuard)
 @Controller('authentication')
 export class AuthenticationController {
   constructor(private readonly authService: AuthenticationService) {}
 
+  @Public()
   @Post('sign-up')
   async signUp(
     @Res({ passthrough: true }) response: Response,
@@ -35,6 +42,7 @@ export class AuthenticationController {
     });
   }
 
+  @Public()
   @Post('sign-in')
   @HttpCode(HttpStatus.OK)
   async signIn(
@@ -55,20 +63,23 @@ export class AuthenticationController {
     });
   }
 
+  // This handler used by the front end when it launched for the first time to check if it was logged when it closed last time
   @Post('verify-token')
   @HttpCode(HttpStatus.OK)
-  async verifyToken(@Req() request: Request) {
-    const accessToken = request.cookies['accessToken'];
-    await this.authService.verifyToken(accessToken);
-  }
+  async verifyToken() {}
 
   @Post('sign-out')
   @HttpCode(HttpStatus.OK)
-  async logout(@Res({ passthrough: true }) response: Response) {
+  async logout(
+    @LoggedInUser() loggedInUser: AccessTokenPayload,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.authService.signOut(loggedInUser.sub);
     response.clearCookie('accessToken');
     response.clearCookie('refreshToken');
   }
 
+  @Public()
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   async refreshToken(

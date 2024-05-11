@@ -70,16 +70,6 @@ export class AuthenticationService {
     return { accessToken, refreshToken };
   }
 
-  async verifyToken<Payload extends object>(token: string): Promise<Payload> {
-    try {
-      return await this.jwtService.verifyAsync<Payload>(token, {
-        secret: this.jwtConfiguration.accessTokenSecret,
-      });
-    } catch (_e) {
-      throw new UnauthorizedException('User is not logged in');
-    }
-  }
-
   async refreshToken(
     oldRefreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -104,6 +94,10 @@ export class AuthenticationService {
     } catch (_e) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  async signOut(userId: string): Promise<void> {
+    await this.refreshTokenStorageService.invalidate(userId);
   }
 
   private async generateAccessToken(user: User): Promise<string> {
