@@ -12,6 +12,7 @@ import { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import jwtConfig from '../config/jwt.config';
 import { UsersService } from 'src/users/users.service';
+import { AccessTokenPayload } from '../interfaces/access-token.payload.interface';
 
 @Injectable()
 export class AuthenticationService {
@@ -23,7 +24,7 @@ export class AuthenticationService {
     private usersService: UsersService,
   ) {}
 
-  async signUp(signUpDto: SignUpDto) {
+  async signUp(signUpDto: SignUpDto): Promise<string> {
     const existedUser = await this.usersService.findByEmail(signUpDto.email);
     if (existedUser) {
       throw new ConflictException('User already exists');
@@ -32,11 +33,11 @@ export class AuthenticationService {
     user.email = signUpDto.email;
     user.password = await this.hashingService.hash(signUpDto.password);
     await this.usersService.create(user);
-    const accessToken = await this.generateTokens(user);
+    const accessToken = await this.generateAccessToken(user);
     return accessToken;
   }
 
-  async signIn(signInDto: SignInDto) {
+  async signIn(signInDto: SignInDto): Promise<string> {
     const user = await this.usersService.findByEmail(signInDto.email);
     if (!user) {
       throw new UnauthorizedException('User does not exist');
@@ -48,23 +49,22 @@ export class AuthenticationService {
     if (!isEqual) {
       throw new UnauthorizedException('Wrong password');
     }
-    const accessToken = await this.generateTokens(user);
+    const accessToken = await this.generateAccessToken(user);
     return accessToken;
   }
 
-  async verifyToken(token: string) {
+  async verifyToken<Payload extends object>(token: string): Promise<Payload> {
     try {
-      await this.jwtService.verifyAsync(token, {
+      return await this.jwtService.verifyAsync<Payload>(token, {
         secret: this.jwtConfiguration.secret,
       });
-      return true;
     } catch (_e) {
       throw new UnauthorizedException('User is not logged in');
     }
   }
 
-  private async generateTokens(user: User) {
-    const accessToken = await this.signToken<Partial<User>>(
+  private async generateAccessToken(user: User): Promise<string> {
+    const accessToken = await this.signToken<AccessTokenPayload>(
       user.id,
       this.jwtConfiguration.accessTokenTtl,
       { email: user.email },
@@ -72,11 +72,15 @@ export class AuthenticationService {
     return accessToken;
   }
 
-  private async signToken<T>(userId: string, expiresIn: number, payload?: T) {
+  private async signToken<Payload>(
+    userId: string,
+    expiresIn: number,
+    data?: Omit<Payload, 'sub'>,
+  ): Promise<string> {
     return await this.jwtService.signAsync(
       {
+        ...(data ?? {}),
         sub: userId,
-        ...payload,
       },
       {
         audience: this.jwtConfiguration.audience,
