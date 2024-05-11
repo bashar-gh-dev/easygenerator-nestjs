@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import jwtConfig from './config/jwt.config';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from 'src/users/users.module';
+import { RefreshTokenStorageService } from './refresh-token-storage.service';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UsersModule } from 'src/users/users.module';
       useClass: BcryptService, // you can easily change your hashing service here
     },
     AuthenticationService,
+    RefreshTokenStorageService,
   ],
   controllers: [AuthenticationController],
 })

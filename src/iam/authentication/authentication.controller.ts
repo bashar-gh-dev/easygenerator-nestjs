@@ -21,8 +21,14 @@ export class AuthenticationController {
     @Res({ passthrough: true }) response: Response,
     @Body() signUpDto: SignUpDto,
   ) {
-    const accessToken = await this.authService.signUp(signUpDto);
+    const { refreshToken, accessToken } =
+      await this.authService.signUp(signUpDto);
     response.cookie('accessToken', accessToken, {
+      secure: true,
+      httpOnly: true,
+      sameSite: true,
+    });
+    response.cookie('refreshToken', refreshToken, {
       secure: true,
       httpOnly: true,
       sameSite: true,
@@ -35,8 +41,14 @@ export class AuthenticationController {
     @Res({ passthrough: true }) response: Response,
     @Body() signInDto: SignInDto,
   ) {
-    const accessToken = await this.authService.signIn(signInDto);
+    const { refreshToken, accessToken } =
+      await this.authService.signIn(signInDto);
     response.cookie('accessToken', accessToken, {
+      secure: true,
+      httpOnly: true,
+      sameSite: true,
+    });
+    response.cookie('refreshToken', refreshToken, {
       secure: true,
       httpOnly: true,
       sameSite: true,
@@ -54,5 +66,27 @@ export class AuthenticationController {
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('accessToken');
+    response.clearCookie('refreshToken');
+  }
+
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const oldRefreshToken = request.cookies['refreshToken'];
+    const { refreshToken, accessToken } =
+      await this.authService.refreshToken(oldRefreshToken);
+    response.cookie('accessToken', accessToken, {
+      secure: true,
+      httpOnly: true,
+      sameSite: true,
+    });
+    response.cookie('refreshToken', refreshToken, {
+      secure: true,
+      httpOnly: true,
+      sameSite: true,
+    });
   }
 }

@@ -13,6 +13,8 @@ import { JwtService } from '@nestjs/jwt';
 import jwtConfig from '../config/jwt.config';
 import { UsersService } from 'src/users/users.service';
 import { AccessTokenPayload } from '../interfaces/access-token.payload.interface';
+import { RefreshTokenPayload } from '../interfaces/refresh-token.payload.interface';
+import { RefreshTokenStorageService } from '../refresh-token-storage.service';
 
 @Injectable()
 export class AuthenticationService {
@@ -22,9 +24,12 @@ export class AuthenticationService {
     @Inject(jwtConfig.KEY)
     private jwtConfiguration: ConfigType<typeof jwtConfig>,
     private usersService: UsersService,
+    private refreshTokenStorageService: RefreshTokenStorageService,
   ) {}
 
-  async signUp(signUpDto: SignUpDto): Promise<string> {
+  async signUp(
+    signUpDto: SignUpDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const existedUser = await this.usersService.findByEmail(signUpDto.email);
     if (existedUser) {
       throw new ConflictException('User already exists');
@@ -33,11 +38,18 @@ export class AuthenticationService {
     user.email = signUpDto.email;
     user.password = await this.hashingService.hash(signUpDto.password);
     await this.usersService.create(user);
-    const accessToken = await this.generateAccessToken(user);
-    return accessToken;
+    const [accessToken, refreshToken] = await Promise.all([
+      this.generateAccessToken(user),
+      this.generateRefreshToken(user.id),
+    ]);
+    await this.refreshTokenStorageService.invalidate(user.id);
+    await this.refreshTokenStorageService.set(user.id, refreshToken);
+    return { accessToken, refreshToken };
   }
 
-  async signIn(signInDto: SignInDto): Promise<string> {
+  async signIn(
+    signInDto: SignInDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const user = await this.usersService.findByEmail(signInDto.email);
     if (!user) {
       throw new UnauthorizedException('User does not exist');
@@ -49,8 +61,13 @@ export class AuthenticationService {
     if (!isEqual) {
       throw new UnauthorizedException('Wrong password');
     }
-    const accessToken = await this.generateAccessToken(user);
-    return accessToken;
+    const [accessToken, refreshToken] = await Promise.all([
+      this.generateAccessToken(user),
+      this.generateRefreshToken(user.id),
+    ]);
+    await this.refreshTokenStorageService.invalidate(user.id);
+    await this.refreshTokenStorageService.set(user.id, refreshToken);
+    return { accessToken, refreshToken };
   }
 
   async verifyToken<Payload extends object>(token: string): Promise<Payload> {
@@ -63,11 +80,43 @@ export class AuthenticationService {
     }
   }
 
+  async refreshToken(
+    oldRefreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      const { sub } =
+        await this.jwtService.verifyAsync<RefreshTokenPayload>(oldRefreshToken);
+      const isValid = await this.refreshTokenStorageService.validate(
+        sub,
+        oldRefreshToken,
+      );
+      if (!isValid) throw new UnauthorizedException('Invalid refresh token');
+      const user = await this.usersService.findById(sub);
+      const [accessToken, refreshToken] = await Promise.all([
+        this.generateAccessToken(user),
+        this.generateRefreshToken(user.id),
+      ]);
+      await this.refreshTokenStorageService.invalidate(user.id);
+      await this.refreshTokenStorageService.set(user.id, refreshToken);
+      return { accessToken, refreshToken };
+    } catch (_e) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
   private async generateAccessToken(user: User): Promise<string> {
     const accessToken = await this.signToken<AccessTokenPayload>(
       user.id,
       this.jwtConfiguration.accessTokenTtl,
       { email: user.email },
+    );
+    return accessToken;
+  }
+
+  private async generateRefreshToken(userId: string): Promise<string> {
+    const accessToken = await this.signToken<RefreshTokenPayload>(
+      userId,
+      this.jwtConfiguration.refreshTokenTtl,
     );
     return accessToken;
   }
