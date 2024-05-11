@@ -73,7 +73,7 @@ export class AuthenticationService {
   async verifyToken<Payload extends object>(token: string): Promise<Payload> {
     try {
       return await this.jwtService.verifyAsync<Payload>(token, {
-        secret: this.jwtConfiguration.secret,
+        secret: this.jwtConfiguration.accessTokenSecret,
       });
     } catch (_e) {
       throw new UnauthorizedException('User is not logged in');
@@ -84,8 +84,10 @@ export class AuthenticationService {
     oldRefreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     try {
-      const { sub } =
-        await this.jwtService.verifyAsync<RefreshTokenPayload>(oldRefreshToken);
+      const { sub } = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+        oldRefreshToken,
+        { secret: this.jwtConfiguration.refreshTokenTokenSecret },
+      );
       const isValid = await this.refreshTokenStorageService.validate(
         sub,
         oldRefreshToken,
@@ -105,38 +107,23 @@ export class AuthenticationService {
   }
 
   private async generateAccessToken(user: User): Promise<string> {
-    const accessToken = await this.signToken<AccessTokenPayload>(
-      user.id,
-      this.jwtConfiguration.accessTokenTtl,
-      { email: user.email },
-    );
+    const accessTokenPayload: AccessTokenPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+    const accessToken = await this.jwtService.signAsync(accessTokenPayload, {
+      secret: this.jwtConfiguration.accessTokenSecret,
+      expiresIn: this.jwtConfiguration.accessTokenTtl,
+    });
     return accessToken;
   }
 
   private async generateRefreshToken(userId: string): Promise<string> {
-    const accessToken = await this.signToken<RefreshTokenPayload>(
-      userId,
-      this.jwtConfiguration.refreshTokenTtl,
-    );
-    return accessToken;
-  }
-
-  private async signToken<Payload>(
-    userId: string,
-    expiresIn: number,
-    data?: Omit<Payload, 'sub'>,
-  ): Promise<string> {
-    return await this.jwtService.signAsync(
-      {
-        ...(data ?? {}),
-        sub: userId,
-      },
-      {
-        audience: this.jwtConfiguration.audience,
-        issuer: this.jwtConfiguration.issuer,
-        secret: this.jwtConfiguration.secret,
-        expiresIn,
-      },
-    );
+    const refreshTokenPayload: RefreshTokenPayload = { sub: userId };
+    const refreshToken = await this.jwtService.signAsync(refreshTokenPayload, {
+      secret: this.jwtConfiguration.refreshTokenTokenSecret,
+      expiresIn: this.jwtConfiguration.refreshTokenTtl,
+    });
+    return refreshToken;
   }
 }
