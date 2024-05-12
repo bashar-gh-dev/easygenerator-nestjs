@@ -10,15 +10,15 @@ export class TypeOrmValidationSchema {
 }
 
 export default registerAs('typeOrm', () => {
-  const values = {
+  const config = {
     databaseName: process.env.DB_DATABASE,
     userName: process.env.DB_PASSWORD,
     password: process.env.DB_USERNAME,
   };
-  const validatedConfig = plainToInstance(TypeOrmValidationSchema, values, {
+  const configSchema = plainToInstance(TypeOrmValidationSchema, config, {
     enableImplicitConversion: true,
   });
-  const validationErrors = validateSync(validatedConfig);
+  const validationErrors = validateSync(configSchema);
   if (validationErrors.length > 0) {
     const invalidKeys = validationErrors
       .map((validationError) => validationError.property)
@@ -27,5 +27,5 @@ export default registerAs('typeOrm', () => {
       `Invalid environment key/keys: ${invalidKeys}`,
     );
   }
-  return values;
+  return configSchema;
 });

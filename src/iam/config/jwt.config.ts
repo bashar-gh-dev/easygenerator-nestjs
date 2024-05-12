@@ -21,7 +21,7 @@ class JWTConfigValidationSchema {
 }
 
 export default registerAs('jwt', () => {
-  const values = {
+  const config = {
     secret: process.env.JWT_ACCESS_SECRET,
     accessTokenSecret: process.env.JWT_ACCESS_SECRET,
     refreshTokenTokenSecret: process.env.JWT_REFRESH_SECRET,
@@ -30,10 +30,10 @@ export default registerAs('jwt', () => {
     accessTokenTtl: process.env.JWT_ACCESS_TOKEN_TTL,
     refreshTokenTtl: process.env.JWT_REFRESH_TOKEN_TTL,
   };
-  const validatedConfig = plainToInstance(JWTConfigValidationSchema, values, {
+  const configSchema = plainToInstance(JWTConfigValidationSchema, config, {
     enableImplicitConversion: true,
   });
-  const validationErrors = validateSync(validatedConfig);
+  const validationErrors = validateSync(configSchema);
   if (validationErrors.length > 0) {
     const invalidKeys = validationErrors
       .map((validationError) => validationError.property)
@@ -42,5 +42,5 @@ export default registerAs('jwt', () => {
       `Invalid environment key/keys: ${invalidKeys}`,
     );
   }
-  return values;
+  return configSchema;
 });
