@@ -30,14 +30,17 @@ export class AuthenticationService {
   async signUp(
     signUpDto: SignUpDto,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const existedUser = await this.usersService.findByEmail(signUpDto.email);
-    if (existedUser) {
-      throw new ConflictException('User already exists');
-    }
     const user = new User();
     user.email = signUpDto.email;
     user.password = await this.hashingService.hash(signUpDto.password);
-    await this.usersService.create(user);
+    try {
+      await this.usersService.create(user);
+    } catch (error) {
+      const duplicateKeyErrorCode = '11000';
+      if (error.code == duplicateKeyErrorCode)
+        throw new ConflictException('User already exists');
+      throw error;
+    }
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccessToken(user),
       this.generateRefreshToken(user.id),
