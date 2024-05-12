@@ -1,11 +1,13 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Inject,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { Request } from 'express';
 import jwtConfig from 'src/iam/config/jwt.config';
 import { AccessTokenPayload } from 'src/iam/interfaces/access-token.payload.interface';
@@ -30,7 +32,7 @@ export class AccessTokenGuard implements CanActivate {
     if (isPublicRoute) return true;
     const request = context.switchToHttp().getRequest<Request>();
     const accessToken: string | undefined = request.cookies['accessToken'];
-    if (!accessToken) return false;
+    if (!accessToken) throw new UnauthorizedException();
     try {
       const accessTokenPayload =
         await this.jwtService.verifyAsync<AccessTokenPayload>(accessToken, {
@@ -39,7 +41,10 @@ export class AccessTokenGuard implements CanActivate {
       request[LOGGED_IN_USER_KEY] = accessTokenPayload;
       return true;
     } catch (e) {
-      return false;
+      if (e.name === TokenExpiredError.name) {
+        throw new ForbiddenException('Expired access token');
+      }
+      throw new UnauthorizedException();
     }
   }
 }
