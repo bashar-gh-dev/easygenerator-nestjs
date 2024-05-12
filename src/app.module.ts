@@ -2,23 +2,30 @@ import { Module } from '@nestjs/common';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './users/entities/user.entity';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigType } from '@nestjs/config';
 import { IamModule } from './iam/iam.module';
+import typeOrmConfig from './config/type-orm.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: '.development.env',
+      envFilePath: ['src/.env/jwt.env', 'src/.env/type-orm.env'],
     }),
     UsersModule,
-    TypeOrmModule.forRoot({
-      type: 'mongodb',
-      url: `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.s0uxofe.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`,
-      useNewUrlParser: true,
-      synchronize: true,
-      logging: true,
-      entities: [User],
-      database: process.env.DB_DATABASE,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule.forFeature(typeOrmConfig)],
+      inject: [typeOrmConfig.KEY],
+      useFactory: (typeOrmConfiguration: ConfigType<typeof typeOrmConfig>) => {
+        return {
+          type: 'mongodb',
+          url: `mongodb+srv://${typeOrmConfiguration.userName}:${typeOrmConfiguration.password}@cluster0.s0uxofe.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`,
+          useNewUrlParser: true,
+          synchronize: true,
+          logging: true,
+          entities: [User],
+          database: typeOrmConfiguration.databaseName,
+        };
+      },
     }),
     IamModule,
   ],
